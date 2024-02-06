@@ -12,4 +12,4 @@ COPY requirements.txt /app
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
 # Run kopf run on startup
-CMD ["kopf", "run", "-m", "/app/OmeroDropboxOperator.py"]
+ENTRYPOINT /app/entrypoint.sh
