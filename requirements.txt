@@ -1,3 +1,5 @@
 kopf
+flask
 pyyaml
+gunicorn
 kubernetes
