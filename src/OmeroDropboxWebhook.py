@@ -31,8 +31,28 @@ def overwrite_defaults(defaults, specifics):
             defaults[key] = value
     return defaults
 
+
 def create_job(namespace, job_config, pvc_name, mount_path, work_path):
+    # Prepare volumes and volume mounts
     volumes, volume_mounts = [{"name": "work-volume", "persistentVolumeClaim": {"claimName": pvc_name}}], [{"name": "work-volume", "mountPath": mount_path}]
+    
+    # Prepare environment variables, including secrets
+    env = [{"name": k, "value": v} for k, v in job_config.get('env', {}).items()]
+    
+    # Load secrets into environment variables
+    omero_user_secret = job_config.get('omeroUserSecret', {})
+    for secret_key, secret_value in omero_user_secret.items():
+        env.append({
+            "name": f"OMERO_{secret_key.upper()}",
+            "valueFrom": {
+                "secretKeyRef": {
+                    "name": secret_value['name'],
+                    "key": secret_value['key']
+                }
+            }
+        })
+    
+    # Job specification
     job_spec = {
         "apiVersion": "batch/v1",
         "kind": "Job",
@@ -44,7 +64,7 @@ def create_job(namespace, job_config, pvc_name, mount_path, work_path):
                         "name": "worker",
                         "image": job_config['image'],
                         "command": job_config['command'] + [work_path],
-                        "env": [{"name": k, "value": v} for k, v in job_config.get('env', {}).items()],
+                        "env": env,
                         "volumeMounts": volume_mounts
                     }],
                     "volumes": volumes,
