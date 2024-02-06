@@ -20,13 +20,10 @@ def handle_omerodropbox(spec, name, **kwargs):
     # Merge defaults with overrides
     final_spec = {**default_config, **watch_spec}
     
-    # Ensure command is a list
-    if not isinstance(final_spec['command'], list):
-        final_spec['command'] = [final_spec['command']]
-    
     # Prepare environment variables, adding WATCHED_DIR and WEBHOOK_URL
     env = final_spec.get('env', [])
     env.append({'name': 'WATCHED_DIR', 'value': f"/watch{spec['watch']['watched']['pvc']['path']}"})
+    env.append({'name': 'WATCH_NAME', 'value': name})  # Adjust as necessary
     env.append({'name': 'WEBHOOK_URL', 'value': 'http://import-webhook.omero-dropbox-system.svc.cluster.local:8080/import'})  # Adjust as necessary
     
     volumes = [{
@@ -58,7 +55,6 @@ def handle_omerodropbox(spec, name, **kwargs):
             "containers": [{
                 "name": "watch",
                 "image": final_spec['image'],
-                "command": final_spec['command'],
                 "env": env,
                 "volumeMounts": volume_mounts
             }],
