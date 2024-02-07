@@ -57,7 +57,7 @@ def handle_omerodropbox(spec, name, logger, **kwargs):
 
     # webhook_url = find_webhook_url()
     #TODO proper webhook parsing
-    webhook_url = 'omero-dropbox-webhook.omero-dropbox-system.svc.cluster.local/import
+    webhook_url = 'omero-dropbox-webhook.omero-dropbox-system.svc.cluster.local/import'
     
     # Prepare environment variables
     env = final_spec.get('env', [])
