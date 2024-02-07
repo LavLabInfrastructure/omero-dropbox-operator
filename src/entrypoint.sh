@@ -12,9 +12,10 @@ case "$MODE" in
     ;;
   WATCH)
     echo "Running as Watch..."
-    # Ensure that WATCHED_DIR, WEBHOOK_URL, and IGNORE_PATTERN are set
+    # Ensure that WATCHED_DIR, WEBHOOK_URL, and WATCH_NAME are set
     if [ -z "$WATCHED_DIR" ] || [ -z "$WEBHOOK_URL" ] || [ -z "$WATCH_NAME" ]; then
-        echo "The WATCHED_DIR and WEBHOOK_URL environment variables must be set."
+        echo "The WATCHED_DIR, WATCH_NAME and WEBHOOK_URL environment variables must be set."
+        echo "WATCHED_DIR=$WATCHED_DIR, WATCH_NAME=$WATCH_NAME, WEBHOOK_URL=$WEBHOOK_URL"
         exit 1
     fi
     
