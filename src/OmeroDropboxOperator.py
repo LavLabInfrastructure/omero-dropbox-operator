@@ -17,7 +17,7 @@ def get_operator_image():
         pod = core_v1_api.read_namespaced_pod(name=pod_name, namespace=OPERATOR_NAMESPACE)
         
         # Assuming the operator container is the first one, extract the image name
-        operator_image = pod.spec.containers[0].image
+        operator_image = pod.spec.containers[0].image 
         return operator_image
     except client.rest.ApiException as e:
         print(f"Exception when calling CoreV1Api->read_namespaced_pod: {e}")
@@ -142,7 +142,8 @@ async def startup_fn(logger, **kwargs):
     for dropbox in omero_dropboxes.get('items', []):
         name = dropbox['metadata']['name']
         namespace = dropbox['metadata']['namespace']
-        reconcile_omerodropbox(name=name, namespace=namespace, logger=logger)
+        reconcile_omerodropbox(name, namespace, dropbox['spec'], [], logger, **kwargs)
+
 
 
 @kopf.on.update('omero.lavlab.edu', 'v1', 'omerodropboxes')
@@ -150,37 +151,36 @@ def reconcile_omerodropbox(name, namespace, spec, diff, logger, **_):
     """
     Reconcile the state of OmeroDropbox resources by ensuring the watch pod is in the desired state.
     """
-    # Detect significant changes excluding metadata like labels or annotations
-    significant_change_detected = any(
-        op in ['add', 'change', 'remove'] and
-        field_path[0] != 'metadata'
-        for op, field_path, _, _ in diff
-    )
+    api_instance = client.CoreV1Api()
+    pod_name = f"{name}-watch"
 
-    if significant_change_detected:
-        logger.info(f"Significant change detected for {name} in namespace {namespace}, reconciling...")
+    # Check if the pod exists
+    try:
+        pod = api_instance.read_namespaced_pod(name=pod_name, namespace=namespace)
+        existing_pod_image = pod.spec.containers[0].image
 
-        # Ensure Kubernetes client is configured
-        config.load_incluster_config()
-        api_instance = client.CoreV1Api()
+        # Detect significant changes or if the pod's image is outdated
+        significant_change_detected = any(
+            op in ['add', 'change', 'remove'] and field_path[0] == 'spec'
+            for op, field_path, _, _ in diff
+        ) or existing_pod_image != OPERATOR_IMAGE
 
-        pod_name = f"{name}-watch"
-
-        # Attempt to delete the existing watch pod if it exists
-        try:
+        if significant_change_detected:
+            logger.info(f"Reconciling {pod_name} due to spec changes or outdated image.")
+            # Delete and recreate the pod
             api_instance.delete_namespaced_pod(name=pod_name, namespace=namespace)
-            logger.info(f"Deleted existing watch pod {pod_name} in namespace {namespace}")
-        except ApiException as e:
-            if e.status != 404:  # Ignore error if the pod doesn't exist
-                logger.error(f"Failed to delete pod {pod_name} in namespace {namespace}: {e}")
-                return
-            logger.info(f"Watch pod {pod_name} does not exist, nothing to delete.")
+            logger.info(f"Deleted {pod_name} for recreation.")
+            create_dropbox(spec, name, logger, namespace)
+            logger.info(f"Recreated {pod_name} with updated configuration.")
 
-        # Recreate the watch pod with updated configuration
-        # Assuming create_watch_pod is a function that creates the pod manifest based on the OmeroDropbox spec
-        # and applies it to the cluster.
-        create_dropbox(spec, name, logger)
-        logger.info(f"Recreated watch pod {pod_name} in namespace {namespace}.")
+    except ApiException as e:
+        if e.status == 404:
+            # Pod does not exist, create it
+            logger.info(f"{pod_name} does not exist. Creating...")
+            create_dropbox(spec, name, logger, namespace)
+        else:
+            logger.error(f"Error checking existence of {pod_name}: {e}")
+
 
 
 @kopf.on.create('omero.lavlab.edu', 'v1', 'omerodropboxes')
