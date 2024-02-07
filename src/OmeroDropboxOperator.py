@@ -143,11 +143,3 @@ def create_pod_manifest(name, final_spec, env, volumes, volume_mounts):
             "restartPolicy": "OnFailure"
         }
     }
-
-def create_pod(pod_manifest, logger):
-    api_instance = client.CoreV1Api()
-    try:
-        api_instance.create_namespaced_pod(OPERATOR_NAMESPACE, body=pod_manifest)
-        logger.info(f"Pod {pod_manifest['metadata']['name']} created in namespace {OPERATOR_NAMESPACE}")
-    except client.exceptions.ApiException as e:
-        logger.error(f"Failed to create Pod {pod_manifest['metadata']['name']}: {e}")
