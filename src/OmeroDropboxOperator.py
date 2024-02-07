@@ -95,6 +95,7 @@ def delete_omerodropbox(name, logger=None, **kwargs):
 def create_pod(pod_manifest, logger, name):
     pod_name = f"{name}-watch"
     namespace = OPERATOR_NAMESPACE
+    api_instance = client.CoreV1Api()
     try:
         api_instance.read_namespaced_pod(name=pod_name, namespace=namespace)
         logger.info(f"Pod {pod_name} already exists in namespace {namespace}. Skipping creation.")
