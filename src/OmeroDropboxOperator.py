@@ -32,18 +32,22 @@ def get_operator_image():
 
 OPERATOR_IMAGE = get_operator_image()
 
-def find_webhook_url(namespace=OPERATOR_NAMESPACE):
+
+def find_webhook_url(namespace='omero-dropbox-system'):
+    # Initialize the Kubernetes API client within the function scope
+    api_instance = client.CoreV1Api()
+
     try:
         services = api_instance.list_namespaced_service(namespace=namespace, label_selector='role=import-webhook')
         for svc in services.items:
             # Assuming the webhook service has a single, well-known port
             port = svc.spec.ports[0].port if svc.spec.ports else 8080
-            # Construct the service URL
             webhook_url = f"http://{svc.metadata.name}.{namespace}.svc.cluster.local:{port}/import"
             return webhook_url
     except ApiException as e:
         print(f"Error fetching services in namespace {namespace}: {e}")
     return None
+
     
 @kopf.on.create('omero.lavlab.edu', 'v1', 'omerodropboxes')
 @kopf.on.update('omero.lavlab.edu', 'v1', 'omerodropboxes')
