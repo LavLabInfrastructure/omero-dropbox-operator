@@ -4,11 +4,11 @@
 case "$MODE" in
   OPERATOR)
     echo "Running as Operator..."
-    python3 /app/OmeroDropboxOperator.py
+    kopf run OmeroDropboxOperator.py --verbose
     ;;
   WEBHOOK)
     echo "Running as Webhook..."
-    gunicorn --workers=${GUNICORN_WORKERS} --bind=0.0.0.0:8000 /app/OmeroImportWebhook:app
+    gunicorn --workers=${GUNICORN_WORKERS} --bind=0.0.0.0:8000 OmeroImportWebhook.py:app
     ;;
   WATCH)
     echo "Running as Watch..."
