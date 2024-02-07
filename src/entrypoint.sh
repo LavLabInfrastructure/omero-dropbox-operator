@@ -8,7 +8,7 @@ case "$MODE" in
     ;;
   WEBHOOK)
     echo "Running as Webhook..."
-    gunicorn --workers=${GUNICORN_WORKERS} --bind=0.0.0.0:8080 OmeroDropboxWebhook.py:app
+    gunicorn --workers=${GUNICORN_WORKERS} --bind=0.0.0.0:8080 OmeroDropboxWebhook:app
     ;;
   WATCH)
     echo "Running as Watch..."
