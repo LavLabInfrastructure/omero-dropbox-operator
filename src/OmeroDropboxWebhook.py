@@ -1,3 +1,4 @@
+import os
 import yaml
 
 from kubernetes import client, config
@@ -32,12 +33,14 @@ def overwrite_defaults(defaults, specifics):
     return defaults
 
 
-def create_job(namespace, job_config, pvc_name, mount_path, work_path):
+def create_job(namespace, job_config, pvc_name, work_path):
     # Prepare volumes and volume mounts
-    volumes, volume_mounts = [{"name": "work-volume", "persistentVolumeClaim": {"claimName": pvc_name}}], [{"name": "work-volume", "mountPath": mount_path}]
+    volumes, volume_mounts = [{"name": "work-volume", "persistentVolumeClaim": {"claimName": pvc_name}}], [{"name": "work-volume", "mountPath":"/data"}]
     
     # Prepare environment variables, including secrets
     env = [{"name": k, "value": v} for k, v in job_config.get('env', {}).items()]
+
+    env.append({"FILE": work_path})
     
     # Load secrets into environment variables
     omero_user_secret = job_config.get('omeroUserSecret', {})
@@ -63,7 +66,7 @@ def create_job(namespace, job_config, pvc_name, mount_path, work_path):
                     "containers": [{
                         "name": "worker",
                         "image": job_config['image'],
-                        "command": job_config['command'] + [work_path],
+                        "command": job_config['command'],
                         "env": env,
                         "volumeMounts": volume_mounts
                     }],
@@ -82,7 +85,7 @@ def create_job(namespace, job_config, pvc_name, mount_path, work_path):
 def import_handler():
     data = request.json
     omero_dropbox_name = data['OmeroDropbox']
-    full_path = data['fullPath']
+    full_path = data['fullPath'] # 
     
     default_config_map = get_config_map(namespace, 'default-import-config')
     omero_dropbox_crd = get_omero_dropbox_crd(namespace, omero_dropbox_name)
@@ -91,10 +94,12 @@ def import_handler():
     specific_config_map = get_config_map(namespace, specific_config_map_name) if specific_config_map_name else {}
     
     job_config = overwrite_defaults(default_config_map, specific_config_map)
-    pvc_name = omero_dropbox_crd.get('spec', {}).get('pvcName')
-    work_path_in_pod = full_path  # Assume transformation to pod's path is handled if necessary
+
+    pvc_name = omero_dropbox_crd['spec']['watch']['watched']['pvc']['name']
+
+    work_path_in_pod = full_path.replace('/watch', '/data')  # Assume transformation to pod's path is handled if necessary
     
-    job_name = create_job(namespace, job_config, pvc_name, job_config['mountPath'], work_path_in_pod)
+    job_name = create_job(namespace, job_config, pvc_name, work_path_in_pod)
     
     return jsonify({"message": "Job created successfully", "jobName": job_name}), 200
 
