@@ -32,11 +32,26 @@ def get_operator_image():
 
 OPERATOR_IMAGE = get_operator_image()
 
+def find_webhook_url(namespace=OPERATOR_NAMESPACE):
+    try:
+        services = api_instance.list_namespaced_service(namespace=namespace, label_selector='role=import-webhook')
+        for svc in services.items:
+            # Assuming the webhook service has a single, well-known port
+            port = svc.spec.ports[0].port if svc.spec.ports else 8080
+            # Construct the service URL
+            webhook_url = f"http://{svc.metadata.name}.{namespace}.svc.cluster.local:{port}/import"
+            return webhook_url
+    except ApiException as e:
+        print(f"Error fetching services in namespace {namespace}: {e}")
+    return None
+    
 @kopf.on.create('omero.lavlab.edu', 'v1', 'omerodropboxes')
 @kopf.on.update('omero.lavlab.edu', 'v1', 'omerodropboxes')
 def handle_omerodropbox(spec, name, logger, **kwargs):
     logger.info(f"Handling OmeroDropbox {name} creation/update")
     final_spec = spec.get('watch', {}).get('spec', {})
+
+    webhook_url = find_webhook_url()
     
     # Prepare environment variables
     env = final_spec.get('env', [])
@@ -44,31 +59,49 @@ def handle_omerodropbox(spec, name, logger, **kwargs):
         {'name': 'MODE', 'value': 'WATCH'},
         {'name': 'WATCHED_DIR', 'value': f"/watch{spec['watch']['watched']['pvc']['path']}"},
         {'name': 'WATCH_NAME', 'value': name},
-        {'name': 'WEBHOOK_URL', 'value': 'http://import-webhook.omero-dropbox-system.svc.cluster.local:8080/import'}
+        {'name': 'WEBHOOK_URL', 'value': webhook_url}
     ])
-    
+
     # Prepare volumes and mounts
     volumes, volume_mounts = prepare_volumes_and_mounts(spec, final_spec, logger)
-    
+
     # Create Pod manifest
     pod_manifest = create_pod_manifest(name, final_spec, env, volumes, volume_mounts)
-    
-    # Create the Pod in Kubernetes
-    create_pod(pod_manifest, logger)
+
+    # Create the Pod in Kubernetes, checking if it already exists
+    create_pod(pod_manifest, logger, name)
 
 @kopf.on.delete('omero.lavlab.edu', 'v1', 'omerodropboxes')
-def delete_omerodropbox(name, **kwargs):
-    logger = kwargs.get('logger')
+def delete_omerodropbox(name, logger=None, **kwargs):
+    if logger is None:
+        logger = logging.getLogger('kopf')
     logger.info(f"Deleting resources for OmeroDropbox {name}")
 
-    # Example: delete a Pod created for the OmeroDropbox
-    api_instance = client.CoreV1Api()
     pod_name = f"{name}-watch"
     try:
         api_instance.delete_namespaced_pod(pod_name, OPERATOR_NAMESPACE)
         logger.info(f"Pod {pod_name} deleted in namespace {OPERATOR_NAMESPACE}")
-    except client.exceptions.ApiException as e:
-        logger.error(f"Failed to delete Pod {pod_name}: {e}")
+    except ApiException as e:
+        if e.status == 404:  # Not found
+            logger.info(f"Pod {pod_name} not found. It might have already been deleted.")
+        else:
+            logger.error(f"Failed to delete Pod {pod_name}: {e}")
+
+def create_pod(pod_manifest, logger, name):
+    pod_name = f"{name}-watch"
+    namespace = OPERATOR_NAMESPACE
+    try:
+        api_instance.read_namespaced_pod(name=pod_name, namespace=namespace)
+        logger.info(f"Pod {pod_name} already exists in namespace {namespace}. Skipping creation.")
+    except ApiException as e:
+        if e.status == 404:  # Not found, safe to create
+            try:
+                api_instance.create_namespaced_pod(body=pod_manifest, namespace=namespace)
+                logger.info(f"Pod {pod_name} created in namespace {namespace}.")
+            except ApiException as create_error:
+                logger.error(f"Failed to create Pod {pod_name}: {create_error}")
+        else:
+            logger.error(f"Failed to check existence of Pod {pod_name}: {e}")
 
 def prepare_volumes_and_mounts(spec, final_spec, logger):
     volumes = [{
