@@ -1,6 +1,6 @@
 FROM python:3.9-slim-bookworm
 
-RUN apt-get update && apt-get install -y inotify-tools && apt-get clean
+RUN apt-get update && apt-get install -y curl inotify-tools && apt-get clean
 
 WORKDIR /app
 
