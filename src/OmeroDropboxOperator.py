@@ -170,14 +170,14 @@ def reconcile_omerodropbox(name, namespace, spec, diff, logger, **_):
             # Delete and recreate the pod
             api_instance.delete_namespaced_pod(name=pod_name, namespace=namespace)
             logger.info(f"Deleted {pod_name} for recreation.")
-            create_dropbox(spec, name, logger, namespace)
+            create_dropbox(spec, name, logger)
             logger.info(f"Recreated {pod_name} with updated configuration.")
 
     except ApiException as e:
         if e.status == 404:
             # Pod does not exist, create it
             logger.info(f"{pod_name} does not exist. Creating...")
-            create_dropbox(spec, name, logger, namespace)
+            create_dropbox(spec, name, logger)
         else:
             logger.error(f"Error checking existence of {pod_name}: {e}")
 
