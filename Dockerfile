@@ -10,5 +10,7 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 COPY src/* /app
 RUN chmod +x /app/entrypoint.sh
 
-USER 1000
+RUN useradd -u 1000 -m user
+USER user
+
 ENTRYPOINT /app/entrypoint.sh
