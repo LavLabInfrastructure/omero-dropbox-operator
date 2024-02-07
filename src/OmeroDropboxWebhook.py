@@ -13,7 +13,7 @@ with open('/var/run/secrets/kubernetes.io/serviceaccount/namespace', 'r') as f:
 def get_config_map(namespace, name):
     core_v1 = client.CoreV1Api()
     config_map = core_v1.read_namespaced_config_map(name, namespace)
-    return yaml.safe_load(config_map.data['config.yml'])  # Assuming the YAML is under 'config' key
+    return yaml.safe_load(config_map.data['config.yaml'])  # Assuming the YAML is under 'config' key
 
 def get_omero_dropbox_crd(namespace, name):
     custom_api = client.CustomObjectsApi()
