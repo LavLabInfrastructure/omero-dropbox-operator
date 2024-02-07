@@ -2,6 +2,7 @@ import os
 import kopf
 import yaml
 from kubernetes import client, config
+from kubernetes.client.rest import ApiException
 
 # Load Kubernetes in-cluster configuration
 config.load_incluster_config()
