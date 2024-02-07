@@ -6,31 +6,41 @@ from kubernetes import client, config
 config.load_incluster_config()
 
 # Namespace where the operator is running, read from the mounted service account secret
+OPERATOR_NAMESPACE = 'omero-dropbox-system'
 with open('/var/run/secrets/kubernetes.io/serviceaccount/namespace', 'r') as f:
     OPERATOR_NAMESPACE = f.read().strip()
 
-def get_default_config(logger):
+
+def get_operator_image():
+    # Get the current pod name and namespace
+    pod_name = os.environ.get('HOSTNAME')
+
+    # Create an instance of the CoreV1Api
     core_v1_api = client.CoreV1Api()
+
     try:
-        config_map = core_v1_api.read_namespaced_config_map("default-dropbox-config", OPERATOR_NAMESPACE)
-        return yaml.safe_load(config_map.data['config'])
-    except client.exceptions.ApiException as e:
-        logger.error(f"Failed to read default config: {e}")
-        return {}  # Return an empty config if there's an error
+        # Retrieve the pod information
+        pod = core_v1_api.read_namespaced_pod(name=pod_name, namespace=OPERATOR_NAMESPACE)
+        
+        # Assuming the operator container is the first one, extract the image name
+        operator_image = pod.spec.containers[0].image
+        return operator_image
+    except client.rest.ApiException as e:
+        print(f"Exception when calling CoreV1Api->read_namespaced_pod: {e}")
+        return None
+
+OPERATOR_IMAGE = get_operator_image()
 
 @kopf.on.create('omero.lavlab.edu', 'v1', 'omerodropboxes')
 @kopf.on.update('omero.lavlab.edu', 'v1', 'omerodropboxes')
 def handle_omerodropbox(spec, name, logger, **kwargs):
     logger.info(f"Handling OmeroDropbox {name} creation/update")
-    default_config = get_default_config(logger)
-    watch_spec = spec.get('watch', {}).get('spec', {})
+    final_spec = spec.get('watch', {}).get('spec', {})
     
-    # Merge defaults with overrides
-    final_spec = {**default_config, **watch_spec}
-
     # Prepare environment variables
     env = final_spec.get('env', [])
     env.extend([
+        {'name': 'MODE', 'value': 'WATCH'},
         {'name': 'WATCHED_DIR', 'value': f"/watch{spec['watch']['watched']['pvc']['path']}"},
         {'name': 'WATCH_NAME', 'value': name},
         {'name': 'WEBHOOK_URL', 'value': 'http://import-webhook.omero-dropbox-system.svc.cluster.local:8080/import'}
@@ -86,7 +96,7 @@ def create_pod_manifest(name, final_spec, env, volumes, volume_mounts):
         "spec": {
             "containers": [{
                 "name": "watch",
-                "image": final_spec['image'],
+                "image": OPERATOR_IMAGE,
                 "env": env,
                 "volumeMounts": volume_mounts
             }],
