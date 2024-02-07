@@ -4,11 +4,11 @@
 case "$MODE" in
   OPERATOR)
     echo "Running as Operator..."
-    kopf run OmeroDropboxOperator.py --verbose
+    kopf run OmeroDropboxOperator.py --verbose -n $(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)
     ;;
   WEBHOOK)
     echo "Running as Webhook..."
-    gunicorn --workers=${GUNICORN_WORKERS} --bind=0.0.0.0:8000 OmeroImportWebhook.py:app
+    gunicorn --workers=${GUNICORN_WORKERS} --bind=0.0.0.0:8080 OmeroDropboxWebhook.py:app
     ;;
   WATCH)
     echo "Running as Watch..."
