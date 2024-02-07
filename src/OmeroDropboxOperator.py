@@ -34,20 +34,17 @@ def get_operator_image():
 OPERATOR_IMAGE = get_operator_image()
 
 def find_webhook_url(namespace='omero-dropbox-system'):
-    # Assume configuration is already done outside this function, e.g., config.load_incluster_config()
-
     api_instance = client.CoreV1Api()
 
     try:
-        services = api_instance.list_namespaced_service(namespace=namespace)
+        # Use the correct label selector to find the webhook service
+        services = api_instance.list_namespaced_service(namespace=namespace, label_selector='app=omero-dropbox-operator-webhook')
         for svc in services.items:
-            # Example characteristic: service name contains 'webhook'
-            # Adjust this condition based on your actual distinguishing feature
-            if 'webhook' in svc.metadata.name:
-                port = svc.spec.ports[0].port if svc.spec.ports else 8080
-                webhook_url = f"http://{svc.metadata.name}.{namespace}.svc.cluster.local:{port}/import"
-                return webhook_url
-        print("Webhook service not found.")
+            # Assuming the webhook service has a single, well-defined port
+            port = svc.spec.ports[0].port if svc.spec.ports else 8080
+            # Construct the webhook URL
+            webhook_url = f"http://{svc.metadata.name}.{namespace}.svc.cluster.local:{port}/import"
+            return webhook_url
     except ApiException as e:
         print(f"Error fetching services in namespace {namespace}: {e}")
     return None
@@ -93,6 +90,51 @@ def delete_omerodropbox(name, logger=None, **kwargs):
             logger.info(f"Pod {pod_name} not found. It might have already been deleted.")
         else:
             logger.error(f"Failed to delete Pod {pod_name}: {e}")
+
+
+@kopf.timer('omero.lavlab.edu', 'v1', 'omerodropboxes', interval=60)  # Checks every 60 seconds
+def reconcile_omerodropbox(name, namespace, logger, **kwargs):
+    """
+    Reconcile the state of OmeroDropbox resources.
+    This function checks if the watch pod for each OmeroDropbox is running and recreates it if necessary.
+    """
+    logger.info(f"Reconciling OmeroDropbox {name} in namespace {namespace}")
+
+    pod_name = f"{name}-watch"
+    api_instance = client.CoreV1Api()
+
+    try:
+        pod = api_instance.read_namespaced_pod(name=pod_name, namespace=namespace)
+        # Check if the pod is running or in a recoverable state. Implement your logic here.
+        if pod.status.phase not in ['Running', 'Pending']:
+            logger.warning(f"Pod {pod_name} in unexpected state: {pod.status.phase}. Attempting to recreate...")
+            recreate_watch_pod(name, namespace, logger)
+    except ApiException as e:
+        if e.status == 404:  # Pod not found, recreate it
+            logger.info(f"Pod {pod_name} not found. Recreating...")
+            recreate_watch_pod(name, namespace, logger)
+        else:
+            logger.error(f"Error checking pod {pod_name}: {e}")
+
+def recreate_watch_pod(name, namespace, logger):
+    """
+    Recreate the watch pod for a given OmeroDropbox.
+    This function can utilize your existing pod creation logic.
+    """
+    # Fetch the OmeroDropbox CR to get its spec
+    api_instance = client.CustomObjectsApi()
+    omerodropbox_cr = api_instance.get_namespaced_custom_object(
+        group="omero.lavlab.edu",
+        version="v1",
+        namespace=namespace,
+        plural="omerodropboxes",
+        name=name,
+    )
+    spec = omerodropbox_cr['spec']
+
+    # Assuming you have a function to handle creation/update that can be reused here
+    handle_omerodropbox(spec=spec, name=name, logger=logger, namespace=namespace)
+
 
 def create_pod(pod_manifest, logger, name):
     pod_name = f"{name}-watch"
