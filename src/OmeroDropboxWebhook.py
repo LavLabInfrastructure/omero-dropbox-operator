@@ -38,9 +38,9 @@ def create_job(namespace, job_config, pvc_name, work_path):
     volumes, volume_mounts = [{"name": "work-volume", "persistentVolumeClaim": {"claimName": pvc_name}}], [{"name": "work-volume", "mountPath":"/data"}]
     
     # Prepare environment variables, including secrets
-    env = [{"name": k, "value": v} for k, v in job_config.get('env', [])]
+    env = [{"name": k, "value": item} for item in job_config.get('env', [])]
 
-    env.append({"FILE": work_path})
+    env.append({"name": "FILE", "value": work_path})
     
     # Load secrets into environment variables
     omero_user_secret = job_config.get('omeroUserSecret', {})
