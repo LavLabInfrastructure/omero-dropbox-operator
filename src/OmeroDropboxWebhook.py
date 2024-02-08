@@ -87,7 +87,7 @@ def import_handler():
     omero_dropbox_name = data['OmeroDropbox']
     full_path = data['fullPath'] # 
     
-    default_config_map = get_config_map(namespace, 'default-import-config')
+    default_config_map = get_config_map(namespace, 'default-import-job-config')
     omero_dropbox_crd = get_omero_dropbox_crd(namespace, omero_dropbox_name)
     
     specific_config_map_name = omero_dropbox_crd.get('spec', {}).get('configMapName')
