@@ -46,7 +46,7 @@ case "$MODE" in
     done
     
     # Start inotifywait to monitor new files and send them to the webhook
-    inotifywait -m -e close_write --format '%w%f' "$WATCHED_DIR" | while read file; do
+    inotifywait -m -r -e close_write --format '%w%f' "$WATCHED_DIR" | while read file; do
         send_to_webhook "$file"
     done
     ;;
