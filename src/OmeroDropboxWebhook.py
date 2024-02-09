@@ -80,27 +80,36 @@ def create_job(namespace, job_config, pvc_name, work_path):
     job = batch_v1.create_namespaced_job(body=job_spec, namespace=namespace)
     return job.metadata.name
 
-@kopf.on.event('batch', 'v1', 'jobs')
-def cleanup_completed_jobs(name, namespace, status, logger, **kwargs):
-    # Determine if the job has completed or failed
-    conditions = status.get('conditions', [])
-    completion_status = None
-    for condition in conditions:
-        if condition['type'] == 'Complete' and condition['status'] == 'True':
-            completion_status = 'completed'
-            break
-        elif condition['type'] == 'Failed' and condition['status'] == 'True':
-            completion_status = 'failed'
-            break
-
-    if completion_status:
+def cleanup_completed_jobs(namespace):
+    config.load_kube_config()  # Or use load_incluster_config() for in-cluster
+    batch_v1 = client.BatchV1Api()
+    while True:
         try:
-            api_instance = client.BatchV1Api()
-            # Delete job if it has completed successfully or failed
-            logger.info(f"Cleaning up job '{name}' in namespace '{namespace}' as it has {completion_status}.")
-            api_instance.delete_namespaced_job(name, namespace, propagation_policy='Background')
-        except ApiException as e:
-            logger.error(f"Failed to delete job '{name}' in namespace '{namespace}': {e}")
+            jobs = batch_v1.list_namespaced_job(namespace)
+            for job in jobs.items:
+                conditions = job.status.conditions or []
+                for condition in conditions:
+                    if (condition.type == 'Complete' and condition.status == 'True') or \
+                       (condition.type == 'Failed' and condition.status == 'True'):
+                        print(f"Deleting job {job.metadata.name}")
+                        batch_v1.delete_namespaced_job(
+                            name=job.metadata.name,
+                            namespace=namespace,
+                            propagation_policy='Background'
+                        )
+        except Exception as e:
+            print(f"Error during job cleanup: {e}")
+        time.sleep(60)  # Adjust as needed
+
+def start_job_cleanup_thread():
+    namespace = "your-namespace"  # Change this to your namespace
+    thread = Thread(target=cleanup_completed_jobs, args=(namespace,))
+    thread.daemon = True  # Daemonize thread
+    thread.start()
+
+@app.before_first_request
+def initialize_background_tasks():
+    start_job_cleanup_thread()
 
 @app.route('/import', methods=['POST'])
 def import_handler():
