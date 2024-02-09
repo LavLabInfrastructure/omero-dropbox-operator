@@ -8,6 +8,7 @@ from flask import Flask, request, jsonify
 app = Flask(__name__)
 
 # Load namespace
+namespace = 'omero-dropbox-system
 with open('/var/run/secrets/kubernetes.io/serviceaccount/namespace', 'r') as f:
     namespace = f.read().strip()
 
@@ -81,7 +82,6 @@ def create_job(namespace, job_config, pvc_name, work_path):
     return job.metadata.name
 
 def cleanup_completed_jobs(namespace):
-    config.load_kube_config()  # Or use load_incluster_config() for in-cluster
     batch_v1 = client.BatchV1Api()
     while True:
         try:
@@ -101,8 +101,7 @@ def cleanup_completed_jobs(namespace):
             print(f"Error during job cleanup: {e}")
         time.sleep(60)  # Adjust as needed
 
-def start_job_cleanup_thread():
-    namespace = "your-namespace"  # Change this to your namespace
+def start_job_cleanup_thread(): 
     thread = Thread(target=cleanup_completed_jobs, args=(namespace,))
     thread.daemon = True  # Daemonize thread
     thread.start()
