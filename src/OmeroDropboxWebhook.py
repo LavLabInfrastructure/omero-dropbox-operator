@@ -115,7 +115,7 @@ def import_handler():
     default_config_map = get_config_map(namespace, 'default-import-job-config')
     omero_dropbox_crd = get_omero_dropbox_crd(namespace, omero_dropbox_name)
     
-    specific_config_map_name = omero_dropbox_crd.get('spec', {}).get('configMapName')
+    specific_config_map_name = omero_dropbox_crd['spec']['watch'].get('spec',{}).get('configMapName')
     specific_config_map = get_config_map(namespace, specific_config_map_name) if specific_config_map_name else {}
     
     job_config = overwrite_defaults(default_config_map, specific_config_map)
