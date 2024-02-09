@@ -8,7 +8,7 @@ from flask import Flask, request, jsonify
 app = Flask(__name__)
 
 # Load namespace
-namespace = 'omero-dropbox-system
+namespace = 'omero-dropbox-system'
 with open('/var/run/secrets/kubernetes.io/serviceaccount/namespace', 'r') as f:
     namespace = f.read().strip()
 
