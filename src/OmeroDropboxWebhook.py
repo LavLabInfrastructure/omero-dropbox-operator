@@ -106,10 +106,6 @@ def start_job_cleanup_thread():
     thread.daemon = True  # Daemonize thread
     thread.start()
 
-@app.before_first_request
-def initialize_background_tasks():
-    start_job_cleanup_thread()
-
 @app.route('/import', methods=['POST'])
 def import_handler():
     data = request.json
@@ -132,5 +128,6 @@ def import_handler():
     
     return jsonify({"message": "Job created successfully", "jobName": job_name}), 200
 
+start_job_cleanup_thread()
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)
