@@ -170,21 +170,26 @@ async def delete_omerodropbox(name, logger, **kwargs):
             else:
                 logger.error(f"Failed to delete Pod {pod_name}: {e}")
 
-@kopf.on.event ('batch', 'v1', 'jobs')
-async def watch_jobs(namespace, logger, event, **kwargs):
-    if event['type'] == 'DELETED':
-        job_name = event['object']['metadata']['name']
-        logger.info(f"Job {job_name} deleted in namespace {namespace}")
-    else:
-        job_status = event['object']['status'].get('conditions', [])
-        for condition in job_status:
-            if condition['type'] == 'Failed':
-                job_name = event['object']['metadata']['name']
-                logger.info(f"Job {job_name} failed in namespace {namespace}")
-            elif condition['type'] == 'Complete':
-                job_name = event['object']['metadata']['name']
-                logger.info(f"Job {job_name} completed in namespace {namespace}")
-            else:
-                continue
-            with client.BatchV1Api() as api:
-                await api.delete_namespaced_job(job_name, namespace)
+@kopf.on.event('batch', 'v1', 'jobs')
+async def watch_jobs(namespace, logger, **kwargs):
+    async with client.BatchV1Api() as api:
+        # List all jobs in the namespace
+        all_jobs = await api.list_namespaced_job(namespace)
+
+        # Filter out jobs that are not complete or failed
+        finished_jobs = [job for job in all_jobs.items if any(condition.type in ['Complete', 'Failed'] for condition in (job.status.conditions or []))]
+
+        # If there are more than one finished jobs, proceed to cleanup
+        if len(finished_jobs) > 1:
+            # Sort the finished jobs by their completion time in descending order
+            finished_jobs.sort(key=lambda job: job.status.completion_time, reverse=True)
+
+            # Keep the most recent job, delete the rest
+            jobs_to_delete = finished_jobs[1:]  # Exclude the most recent job from deletion list
+            for job in jobs_to_delete:
+                job_name = job.metadata.name
+                try:
+                    await api.delete_namespaced_job(job_name, namespace, body=kube.client.V1DeleteOptions())
+                    logger.info(f"Deleted older finished job {job_name} in namespace {namespace}")
+                except kube.client.exceptions.ApiException as e:
+                    logger.error(f"Failed to delete job {job_name} in namespace {namespace}: {e}")
