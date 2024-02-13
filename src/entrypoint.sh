@@ -16,7 +16,15 @@ case "$MODE" in
         echo "The /watch directory does not exist. Please mount a volume to /watch."
         exit 1
     fi
+    
+    echo "Waiting for the scheduler to be ready..."
+    while ! curl -s "http://localhost:8080/import" > /dev/null; do
+        echo "Scheduler is not ready yet. Waiting..."
+        sleep 5
+    done
+    echo "Scheduler is ready."
 
+    
     mkdir -p $WATCHED_DIR
     
     # Optional: Regex pattern to ignore files
