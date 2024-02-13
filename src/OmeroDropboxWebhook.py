@@ -81,10 +81,10 @@ def create_job(namespace, job_config, pvc_name, work_path):
     job = batch_v1.create_namespaced_job(body=job_spec, namespace=namespace)
     return job.metadata.name
 
+
 @app.route('/import', methods=['POST'])
 def import_handler():
     data = request.json
-    omero_dropbox_name = data['OmeroDropbox']
     full_path = data['fullPath'] 
     
     default_config_map = get_config_map(namespace, 'default-import-job-config')
@@ -106,5 +106,6 @@ def import_handler():
 def ready_handler():
     return 200
 
+omero_dropbox_name = os.environ.get('WATCH_NAME','')
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)
