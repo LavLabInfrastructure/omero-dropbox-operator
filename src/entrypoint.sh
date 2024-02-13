@@ -18,7 +18,7 @@ case "$MODE" in
     fi
     
     echo "Waiting for the scheduler to be ready..."
-    while ! curl -s "http://localhost:8080/import" > /dev/null; do
+    while ! curl -s "http://localhost:8080/ready" > /dev/null; do
         echo "Scheduler is not ready yet. Waiting..."
         sleep 5
     done
