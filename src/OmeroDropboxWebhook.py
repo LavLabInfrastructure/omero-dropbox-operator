@@ -77,6 +77,7 @@ def create_job(namespace, job_config, pvc_name, work_path):
         "kind": "Job",
         "metadata": metadata,
         "spec": {
+            "ttlSecondsAfterFinished": 100
             "template": {
                 "spec": {
                     "containers": [{
