@@ -102,6 +102,9 @@ def import_handler():
     job_name = create_job(namespace, job_config, pvc_name, work_path_in_pod)
     
     return jsonify({"message": "Job created successfully", "jobName": job_name}), 200
+@app.route('/ready', methods=['GET'])
+def ready_handler():
+    return 200
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)
