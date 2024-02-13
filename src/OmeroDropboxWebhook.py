@@ -64,16 +64,18 @@ def create_job(namespace, job_config, pvc_name, work_path):
 
     volume_mounts.extend(addMnts)
     volumes.extend(addVols)
+
+    metadata = {"generateName": "import-job-"}
+    if labels:
+        metadata.update({"labels": labels})
+    if annotations:
+        metadata.update({"annotations": annotations})
     
     # Job specification
     job_spec = {
         "apiVersion": "batch/v1",
         "kind": "Job",
-        "metadata": {
-            "generateName": "import-job-",
-            "labels": labels,
-            "annotations": annotations
-        },
+        "metadata": metadata,
         "spec": {
             "template": {
                 "spec": {
