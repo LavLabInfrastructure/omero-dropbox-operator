@@ -58,7 +58,12 @@ def create_job(namespace, job_config, pvc_name, work_path):
 
     labels = job_config.get('labels', {})
     annotations = job_config.get('annotations', {})
-    
+
+    addMnts = job_config.get('additionalMounts', [])
+    addVols = job_config.get('additionalVolumes', [])
+
+    volume_mounts.extend(addMnts)
+    volumes.extend(addVols)
     
     # Job specification
     job_spec = {
