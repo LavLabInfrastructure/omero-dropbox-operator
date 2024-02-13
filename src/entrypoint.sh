@@ -20,7 +20,7 @@ case "$MODE" in
     mkdir -p $WATCHED_DIR
     
     # Optional: Regex pattern to ignore files
-    IGNORE_PATTERN="${IGNORE_PATTERN:-}"
+    IGNORE_PATTERN="${IGNORE_PATTERN:-\.txt}"
     
     should_ignore_file() {
         local file_path=$1
@@ -37,7 +37,7 @@ case "$MODE" in
             echo "Ignoring file: $file_path"
             return
         fi
-        curl -X POST "http://localhost:8080" -H "Content-Type: application/json" -d "{\"OmeroDropbox\":\"$WATCH_NAME\", \"fullPath\":\"$file_path\"}"
+        curl -X POST "http://localhost:8080/import" -H "Content-Type: application/json" -d "{\"OmeroDropbox\":\"$WATCH_NAME\", \"fullPath\":\"$file_path\"}"
     }
     
     # Loop through existing files and send them to the webhook
