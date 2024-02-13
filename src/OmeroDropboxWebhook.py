@@ -55,12 +55,20 @@ def create_job(namespace, job_config, pvc_name, work_path):
                 }
             }
         })
+
+    labels = job_config.get('labels', {})
+    annotations = job_config.get('annotations', {})
+    
     
     # Job specification
     job_spec = {
         "apiVersion": "batch/v1",
         "kind": "Job",
-        "metadata": {"generateName": "import-job-"},
+        "metadata": {
+            "generateName": "import-job-",
+            "labels": labels,
+            "annotations": annotations
+        },
         "spec": {
             "template": {
                 "spec": {
