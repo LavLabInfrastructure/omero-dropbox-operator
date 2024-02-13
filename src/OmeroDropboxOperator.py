@@ -45,7 +45,7 @@ def _prepare_webhook_container(image, name):
     }
 
 def create_dropbox_pod_manifest(name, watch):
-    volumes, watch_manifest, webhook_manifest = None
+    volumes, watch_manifest, webhook_manifest = None, None, None
     if 'pvc' in watch['watched']:
         watched_pvc_name = watch['watched']['pvc']['name']
         watched_pvc_path = watch['watched']['pvc'].get('path', '/')
@@ -57,6 +57,8 @@ def create_dropbox_pod_manifest(name, watch):
             "name": "watched-volume",
             "persistentVolumeClaim": {"claimName": watched_pvc_name}
         }]
+    if volumes is None or watch_manifest is None or webhook_manifest is None:
+        print('failed creating dropbox manifest')
     return {
         "apiVersion": "v1",
         "kind": "Pod",
