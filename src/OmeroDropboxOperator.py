@@ -8,7 +8,8 @@ from kubernetes_asyncio.client.rest import ApiException
 
 async def get_operator_image():
     pod_name = os.environ.get('HOSTNAME')
-    async with client.CoreV1Api() as api:
+    async with client.ApiClient() as api_client:
+        api = client.CoreV1Api(api_client)
         try:
             pod = await api.read_namespaced_pod(name=pod_name, namespace=OPERATOR_NAMESPACE)
             operator_image = pod.spec.containers[0].image
@@ -71,7 +72,8 @@ def create_dropbox_pod_manifest(name, watch):
 async def create_pod(pod_manifest, logger, name):
     pod_name = f"{name}-watch"
     namespace = OPERATOR_NAMESPACE
-    async with client.CoreV1Api() as api:
+    async with client.ApiClient() as api_client:
+        api = client.CoreV1Api(api_client) 
         try:
             await api.read_namespaced_pod(name=pod_name, namespace=namespace)
             logger.info(f"Pod {pod_name} already exists in namespace {namespace}. Skipping creation.")
@@ -121,7 +123,8 @@ async def reconcile_omerodropbox(name, namespace, spec, diff, logger, **_):
     pod_name = f"{name}-watch"
 
     # Check if the pod exists
-    async with client.CoreV1Api() as api:
+    async with client.ApiClient() as api_client:
+        api = client.CoreV1Api(api_client)
         try:
             pod = await api.read_namespaced_pod(name=pod_name, namespace=namespace)
             existing_pod_image = pod.spec.containers[0].image
@@ -159,7 +162,8 @@ async def create_dropbox(spec, name, logger, **kwargs):
 async def delete_omerodropbox(name, logger, **kwargs):
     logger.info(f"Deleting resources for OmeroDropbox {name}")
 
-    async with client.CoreV1Api() as api:
+    async with client.ApiClient() as api_client:
+        api = client.CoreV1Api(api_client)
         pod_name = f"{name}-watch"
         try:
             await api.delete_namespaced_pod(pod_name, OPERATOR_NAMESPACE)
@@ -172,7 +176,8 @@ async def delete_omerodropbox(name, logger, **kwargs):
 
 @kopf.on.event('batch', 'v1', 'jobs')
 async def watch_jobs(namespace, logger, **kwargs):
-    async with client.BatchV1Api() as api:
+    async with client.ApiClient() as api_client:
+        api = client.BatchV1Api(api_client)
         # List all jobs in the namespace
         all_jobs = await api.list_namespaced_job(namespace)
 
