@@ -169,3 +169,22 @@ async def delete_omerodropbox(name, logger, **kwargs):
                 logger.info(f"Pod {pod_name} not found. It might have already been deleted.")
             else:
                 logger.error(f"Failed to delete Pod {pod_name}: {e}")
+
+@kopf.on.event ('batch', 'v1', 'jobs')
+async def watch_jobs(namespace, logger, event, **kwargs):
+    if event['type'] == 'DELETED':
+        job_name = event['object']['metadata']['name']
+        logger.info(f"Job {job_name} deleted in namespace {namespace}")
+    else:
+        job_status = event['object']['status'].get('conditions', [])
+        for condition in job_status:
+            if condition['type'] == 'Failed':
+                job_name = event['object']['metadata']['name']
+                logger.info(f"Job {job_name} failed in namespace {namespace}")
+            elif condition['type'] == 'Complete':
+                job_name = event['object']['metadata']['name']
+                logger.info(f"Job {job_name} completed in namespace {namespace}")
+            else:
+                continue
+            with client.BatchV1Api() as api:
+                await api.delete_namespaced_job(job_name, namespace)
