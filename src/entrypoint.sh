@@ -8,16 +8,16 @@ case "$MODE" in
     ;;
   WEBHOOK)
     echo "Running as Webhook..."
-    gunicorn --workers=${GUNICORN_WORKERS} --bind=0.0.0.0:8080 OmeroDropboxWebhook:app
+    python3 OmeroDropboxWebhook.py
     ;;
   WATCH)
     echo "Running as Watch..."
-    # Ensure that WATCHED_DIR, WEBHOOK_URL, and WATCH_NAME are set
-    if [ -z "$WATCHED_DIR" ] || [ -z "$WEBHOOK_URL" ] || [ -z "$WATCH_NAME" ]; then
-        echo "The WATCHED_DIR, WATCH_NAME and WEBHOOK_URL environment variables must be set."
-        echo "WATCHED_DIR=$WATCHED_DIR, WATCH_NAME=$WATCH_NAME, WEBHOOK_URL=$WEBHOOK_URL"
+    if [[ ! -d '/watch' ]]; then
+        echo "The /watch directory does not exist. Please mount a volume to /watch."
         exit 1
     fi
+
+    mkdir -p $WATCHED_DIR
     
     # Optional: Regex pattern to ignore files
     IGNORE_PATTERN="${IGNORE_PATTERN:-}"
@@ -37,7 +37,7 @@ case "$MODE" in
             echo "Ignoring file: $file_path"
             return
         fi
-        curl -X POST "$WEBHOOK_URL" -H "Content-Type: application/json" -d "{\"OmeroDropbox\":\"$WATCH_NAME\", \"fullPath\":\"$file_path\"}"
+        curl -X POST "http://localhost:8080" -H "Content-Type: application/json" -d "{\"OmeroDropbox\":\"$WATCH_NAME\", \"fullPath\":\"$file_path\"}"
     }
     
     # Loop through existing files and send them to the webhook
