@@ -100,8 +100,8 @@ async def startup_fn(logger, **kwargs):
     logger.info(f"Operator started in namespace {OPERATOR_NAMESPACE}")
 
     # Load Kubernetes client
-    # custom_objects_api = client.CustomObjectsApi()
-    async with client.CustomObjectsApi() as api:
+    async with client.ApiClient() as api_client:
+        custom_objects_api = client.CustomObjectsApi(api_client)
         omero_dropboxes = await api.list_namespaced_custom_object(
             group="omero.lavlab.edu",
             version="v1",
