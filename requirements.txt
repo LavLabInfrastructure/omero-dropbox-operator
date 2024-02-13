@@ -2,3 +2,4 @@ kopf
 flask
 pyyaml
 kubernetes
+kubernetes-asyncio
