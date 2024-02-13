@@ -101,8 +101,8 @@ async def startup_fn(logger, **kwargs):
 
     # Load Kubernetes client
     # custom_objects_api = client.CustomObjectsApi()
-    with client.CustomObjectsApi() as api:
-        omero_dropboxes = api.list_namespaced_custom_object(
+    async with client.CustomObjectsApi() as api:
+        omero_dropboxes = await api.list_namespaced_custom_object(
             group="omero.lavlab.edu",
             version="v1",
             namespace=OPERATOR_NAMESPACE,
@@ -121,7 +121,7 @@ async def reconcile_omerodropbox(name, namespace, spec, diff, logger, **_):
     pod_name = f"{name}-watch"
 
     # Check if the pod exists
-    with client.CoreV1Api() as api:
+    async with client.CoreV1Api() as api:
         try:
             pod = await api.read_namespaced_pod(name=pod_name, namespace=namespace)
             existing_pod_image = pod.spec.containers[0].image
@@ -159,7 +159,7 @@ async def create_dropbox(spec, name, logger, **kwargs):
 async def delete_omerodropbox(name, logger, **kwargs):
     logger.info(f"Deleting resources for OmeroDropbox {name}")
 
-    with client.CoreV1Api() as api:
+    async with client.CoreV1Api() as api:
         pod_name = f"{name}-watch"
         try:
             await api.delete_namespaced_pod(pod_name, OPERATOR_NAMESPACE)
