@@ -94,7 +94,6 @@ OPERATOR_NAMESPACE = 'omero-dropbox-system'
 with open('/var/run/secrets/kubernetes.io/serviceaccount/namespace', 'r') as f:
     OPERATOR_NAMESPACE = f.read().strip()
 
-OPERATOR_IMAGE = get_operator_image()
 
 @kopf.on.startup()
 async def startup_fn(logger, **kwargs):
@@ -102,7 +101,8 @@ async def startup_fn(logger, **kwargs):
     LOCK = asyncio.Lock()
     config.load_incluster_config()
     logger.info(f"Operator started in namespace {OPERATOR_NAMESPACE}")
-
+    global OPERATOR_IMAGE
+    OPERATOR_IMAGE = await get_operator_image()
     # Load Kubernetes client
     async with client.ApiClient() as api_client:
         api = client.CustomObjectsApi(api_client)
