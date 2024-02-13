@@ -96,7 +96,7 @@ OPERATOR_IMAGE = get_operator_image()
 async def startup_fn(logger, **kwargs):
     global LOCK
     LOCK = asyncio.Lock()
-    await config.load_incluster_config()
+    config.load_incluster_config()
     logger.info(f"Operator started in namespace {OPERATOR_NAMESPACE}")
 
     # Load Kubernetes client
