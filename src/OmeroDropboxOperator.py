@@ -111,7 +111,7 @@ async def startup_fn(logger, **kwargs):
     for dropbox in omero_dropboxes.get('items', []):
         name = dropbox['metadata']['name']
         namespace = dropbox['metadata']['namespace']
-        await reconcile_omerodropbox(name, namespace, dropbox['spec'], logger, **kwargs)
+        await reconcile_omerodropbox(name, namespace, dropbox['spec'], [], logger, **kwargs)
 
 @kopf.on.update('omero.lavlab.edu', 'v1', 'omerodropboxes')
 async def reconcile_omerodropbox(name, namespace, spec, diff, logger, **_):
