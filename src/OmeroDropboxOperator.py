@@ -141,18 +141,37 @@ async def reconcile_omerodropbox(name, namespace, spec, diff, logger, **_):
                 logger.info(f"Reconciling {pod_name} due to spec changes or outdated image.")
                 # Delete and recreate the pod
                 await api.delete_namespaced_pod(name=pod_name, namespace=namespace)
-                logger.info(f"Deleted {pod_name} for recreation.")
-            else:
-                logger.info(f"{pod_name} already exists. Skipping creation.")
-                return
+                await wait_for_pod_deletion(api, pod_name, namespace, logger)
+
+                # After deletion, recreate the pod with the updated configuration
+                await create_dropbox(spec, name, logger)
+                logger.info(f"Recreated {pod_name} with updated configuration.")
 
         except ApiException as e:
-            if e.status != 404:
+            if e.status == 404:
+                # Pod does not exist, create it
+                logger.info(f"{pod_name} does not exist. Creating...")
+                await create_dropbox(spec, name, logger)
+            else:
                 logger.error(f"Error checking existence of {pod_name}: {e}")
-                return
-        logger.info(f"{pod_name} does not exist. Creating...")
-        await create_dropbox(spec, name, logger)
-        logger.info(f"Recreated {pod_name} with updated configuration.")
+
+async def wait_for_pod_deletion(api, pod_name, namespace, logger):
+    """
+    Wait for a pod to be deleted by polling its existence.
+    """
+    while True:
+        try:
+            await api.read_namespaced_pod(name=pod_name, namespace=namespace)
+            logger.info(f"Waiting for pod {pod_name} to be deleted...")
+            await asyncio.sleep(1)  # Sleep for a short time before retrying
+        except ApiException as e:
+            if e.status == 404:
+                # Pod is deleted
+                logger.info(f"Pod {pod_name} deleted successfully.")
+                break
+            else:
+                logger.error(f"Failed to check pod deletion status: {e}")
+                break
 
 @kopf.on.create('omero.lavlab.edu', 'v1', 'omerodropboxes')
 async def create_dropbox(spec, name, logger, **kwargs):
