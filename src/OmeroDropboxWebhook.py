@@ -56,6 +56,9 @@ def create_job(namespace, job_config, pvc_name, work_path):
             }
         })
 
+    
+    resources = job_config.get('resources', {})
+
     labels = job_config.get('labels', {})
     annotations = job_config.get('annotations', {})
 
@@ -85,7 +88,8 @@ def create_job(namespace, job_config, pvc_name, work_path):
                         "image": job_config['image'],
                         "command": job_config['command'],
                         "env": env,
-                        "volumeMounts": volume_mounts
+                        "volumeMounts": volume_mounts,
+                        "resources": resources
                     }],
                     "volumes": volumes,
                     "restartPolicy": "Never"
