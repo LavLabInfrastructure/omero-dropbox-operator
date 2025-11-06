@@ -6,6 +6,12 @@ import asyncio
 from kubernetes_asyncio import client as client, config
 from kubernetes_asyncio.client.rest import ApiException
 
+# globals
+OPERATOR_NAMESPACE = 'omero-dropbox-system'
+with open('/var/run/secrets/kubernetes.io/serviceaccount/namespace', 'r') as f:
+    OPERATOR_NAMESPACE = f.read().strip()
+
+
 async def get_operator_image():
     pod_name = os.environ.get('HOSTNAME')
     async with client.ApiClient() as api_client:
@@ -89,10 +95,6 @@ async def create_pod(pod_manifest, logger, name):
             else:
                 logger.error(f"Failed to check existence of Pod {pod_name}: {e}")
     
-# globals
-OPERATOR_NAMESPACE = 'omero-dropbox-system'
-with open('/var/run/secrets/kubernetes.io/serviceaccount/namespace', 'r') as f:
-    OPERATOR_NAMESPACE = f.read().strip()
 
 
 @kopf.on.startup()
