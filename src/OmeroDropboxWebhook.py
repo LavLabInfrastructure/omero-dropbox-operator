@@ -3,7 +3,7 @@ from __future__ import annotations
 import copy
 import logging
 import os
-from typing import Any, Dict, Tuple, cast
+from typing import Any, Dict, Optional, Tuple, cast
 
 import yaml
 from flask import Flask, jsonify, request
@@ -155,7 +155,42 @@ def build_volumes(job_config: Dict[str, Any], pvc_name: str) -> Tuple[list[Dict[
     return volumes, volume_mounts
 
 
-def create_job(namespace: str, job_config: Dict[str, Any], pvc_name: str, work_path: str) -> str:
+def find_existing_job_for_path(namespace: str, path: str) -> Optional[str]:
+    """Return the name of an existing Job that has an annotation with the same path.
+
+    Because annotations may contain arbitrary characters, we store the full
+    file path in the annotation key `omero-dropbox-path` and inspect Jobs in
+    the namespace for a matching annotation value.
+    """
+    batch_v1 = client.BatchV1Api()
+    try:
+        resp = batch_v1.list_namespaced_job(namespace=namespace)
+    except ApiException as exc:  # pragma: no cover - wrapper around k8s API
+        LOG.debug("Failed to list jobs while checking for existing file job: %s", exc)
+        return None
+
+    items = getattr(resp, "items", []) or []
+    if not items:
+        return None
+
+    # Prefer an active job if present, otherwise return the first matching one.
+    found_name: Optional[str] = None
+    for job in items:
+        meta = getattr(job, "metadata", None)
+        if not meta:
+            continue
+        ann = getattr(meta, "annotations", {}) or {}
+        if ann.get("omero-dropbox-path") == path:
+            status = getattr(job, "status", None)
+            if status and getattr(status, "active", 0):
+                return getattr(meta, "name", None)
+            if not found_name:
+                found_name = getattr(meta, "name", None)
+
+    return found_name
+
+
+def create_job(namespace: str, job_config: Dict[str, Any], pvc_name: str, work_path: str, file_path: Optional[str] = None) -> str:
     image = job_config.get("image")
     command = job_config.get("command")
     if not image:
@@ -170,6 +205,12 @@ def create_job(namespace: str, job_config: Dict[str, Any], pvc_name: str, work_p
     metadata: Dict[str, Any] = copy.deepcopy(job_config.get("metadata", {}))
     labels = copy.deepcopy(job_config.get("labels", {}))
     annotations = copy.deepcopy(job_config.get("annotations", {}))
+
+    # Attach file-specific annotation when provided so we can detect duplicates
+    # by the full path. We use an annotation because file paths may contain
+    # characters that are not valid in label values.
+    if file_path:
+        annotations.setdefault("omero-dropbox-path", file_path)
 
     if labels:
         metadata.setdefault("labels", {}).update(labels)
@@ -307,8 +348,15 @@ def import_handler():
 
     work_path_in_pod = base_path if not relative_path else f"{base_path}/{relative_path}"
 
+    # Idempotency: check for an existing Job that has the same path stored in
+    # annotation `omero-dropbox-path`. If found, skip creating a new Job.
+    existing = find_existing_job_for_path(namespace, work_path_in_pod)
+    if existing:
+        LOG.info("Skipping scheduling for %s; job already exists: %s", work_path_in_pod, existing)
+        return jsonify({"message": "Job already exists", "jobName": existing}), 200
+
     try:
-        job_name = create_job(namespace, job_config, pvc_name, work_path_in_pod)
+        job_name = create_job(namespace, job_config, pvc_name, work_path_in_pod, file_path=work_path_in_pod)
     except RuntimeError as exc:
         LOG.error("Failed to create import job: %s", exc)
         return jsonify({"error": str(exc)}), 500
