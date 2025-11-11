@@ -301,11 +301,6 @@ def import_handler():
         relative_path = full_path
     relative_path = relative_path.lstrip("/")
 
-    subpath = pvc_path.strip("/") if pvc_path else ""
-    if subpath and relative_path.startswith(subpath):
-        trimmed = relative_path[len(subpath):]
-        relative_path = trimmed.lstrip("/")
-
     base_path = WATCH_CONTAINER_PATH.rstrip("/") or "/"
     if not base_path.startswith("/"):
         base_path = f"/{base_path}"
