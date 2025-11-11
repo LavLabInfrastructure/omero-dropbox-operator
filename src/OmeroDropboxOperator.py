@@ -408,6 +408,7 @@ async def startup(
     settings: kopf.OperatorSettings,
     memo: kopf.Memo,
     logger: logging.Logger,
+    **_: Any,
 ) -> None:
     settings.posting.level = logging.INFO
     settings.persistence.finalizer = "omero.lavlab.edu/finalizer"
