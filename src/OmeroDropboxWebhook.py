@@ -301,14 +301,16 @@ def import_handler():
         relative_path = full_path
     relative_path = relative_path.lstrip("/")
 
-    mount_base_parts = [WATCH_CONTAINER_PATH.rstrip("/")]
-    if pvc_path and pvc_path not in ("", "/"):
-        mount_base_parts.append(pvc_path.strip("/"))
-    mount_base = "/".join(mount_base_parts)
-    if not mount_base.startswith("/"):
-        mount_base = f"/{mount_base}"
+    subpath = pvc_path.strip("/") if pvc_path else ""
+    if subpath and relative_path.startswith(subpath):
+        trimmed = relative_path[len(subpath):]
+        relative_path = trimmed.lstrip("/")
 
-    work_path_in_pod = mount_base if not relative_path else f"{mount_base}/{relative_path}"
+    base_path = WATCH_CONTAINER_PATH.rstrip("/") or "/"
+    if not base_path.startswith("/"):
+        base_path = f"/{base_path}"
+
+    work_path_in_pod = base_path if not relative_path else f"{base_path}/{relative_path}"
 
     try:
         job_name = create_job(namespace, job_config, pvc_name, work_path_in_pod)
