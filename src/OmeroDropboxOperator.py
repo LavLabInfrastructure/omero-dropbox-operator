@@ -414,6 +414,8 @@ async def startup(
     settings.persistence.finalizer = "omero.lavlab.edu/finalizer"
 
     namespace = discover_namespace()
+    settings.watching.namespaces = [namespace]  # type: ignore[attr-defined]
+    settings.scanning.disabled = True
     memo["namespace"] = namespace
     memo["lock"] = asyncio.Lock()
 
