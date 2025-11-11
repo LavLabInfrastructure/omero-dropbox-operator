@@ -48,18 +48,25 @@ case "$MODE" in
         curl -X POST "http://localhost:8080/import" -H "Content-Type: application/json" -d "{\"OmeroDropbox\":\"$WATCH_NAME\", \"fullPath\":\"$file_path\"}"
     }
     
-    # Loop through existing files and send them to the webhook
-    find "$WATCHED_DIR" -type f -print0 | while IFS= read -r -d $'\0' file; do
-        send_to_webhook "$file"
-    done
-    
-    # Start inotifywait to monitor new files and send them to the webhook
-    inotifywait -m -r -e close_write -e moved_to -e create --format '%w%f' "$WATCHED_DIR" | while IFS= read -r file; do
-        if [[ -d "$file" ]]; then
-            continue
-        fi
-        echo "Detected new file: $file"
-        send_to_webhook "$file"
+    # Poll the watched directory periodically and send all files to the webhook.
+    # This replaces inotifywait with a simple polling loop which runs every
+    # POLL_INTERVAL seconds (default 60). The webhook should deduplicate or
+    # avoid scheduling duplicates (per repository behaviour).
+    POLL_INTERVAL="${POLL_INTERVAL:-60}"
+
+    while true; do
+        find "$WATCHED_DIR" -type f -print0 | while IFS= read -r -d $'\0' file; do
+            # skip directories (find -type f should avoid these, but keep the
+            # check just in case)
+            if [[ -d "$file" ]]; then
+                continue
+            fi
+            echo "Polling detected file: $file"
+            send_to_webhook "$file"
+        done
+
+        # Sleep before the next poll
+        sleep "$POLL_INTERVAL"
     done
     ;;
   *)
