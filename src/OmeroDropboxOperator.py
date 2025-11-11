@@ -483,6 +483,7 @@ async def on_update(
     diff: list[tuple[str, tuple[str, ...], Any, Any]],
     memo: kopf.Memo,
     logger: logging.Logger,
+    **_: Any,
 ) -> None:
     significant_change = any(
         op in {"add", "change", "remove"} and path and path[0] == "spec"
@@ -505,6 +506,7 @@ async def on_create(
     namespace: str,
     memo: kopf.Memo,
     logger: logging.Logger,
+    **_: Any,
 ) -> None:
     logger.info("Creating resources for OmeroDropbox %s in namespace %s.", name, namespace)
     await ensure_dropbox_pod(
@@ -523,6 +525,7 @@ async def on_delete(
     namespace: str,
     memo: kopf.Memo,
     logger: logging.Logger,
+    **_: Any,
 ) -> None:
     logger.info("Deleting resources for OmeroDropbox %s in namespace %s.", name, namespace)
     core_api: client.CoreV1Api | None = memo.get("core_api")
@@ -545,6 +548,7 @@ async def on_job_event(
     event: Mapping[str, Any],
     memo: kopf.Memo,
     logger: logging.Logger,
+    **_: Any,
 ) -> None:
     job = event.get("object")
     if not job:
