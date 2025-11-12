@@ -200,7 +200,40 @@ def create_job(namespace: str, job_config: Dict[str, Any], pvc_name: str, work_p
 
     env = build_env(job_config, work_path)
     volumes, volume_mounts = build_volumes(job_config, pvc_name)
-    resources = job_config.get("resources", {})
+
+    # Resources may be provided as a dict with 'requests' and/or 'limits',
+    # or as convenient flat keys. Normalize into a proper resources dict
+    # suitable for a container spec.
+    resources_raw = job_config.get("resources", {})
+    resources: Dict[str, Any] = {}
+    if isinstance(resources_raw, dict):
+        req = {}
+        lim = {}
+
+        # nested requests/limits
+        if isinstance(resources_raw.get("requests"), dict):
+            req.update(resources_raw.get("requests", {}))
+        if isinstance(resources_raw.get("limits"), dict):
+            lim.update(resources_raw.get("limits", {}))
+
+        # flat convenience keys (cpu/memory) -> treat as requests unless
+        # explicit limits are provided via limits_cpu/limits_memory
+        if "cpu" in resources_raw:
+            req.setdefault("cpu", resources_raw.get("cpu"))
+        if "memory" in resources_raw:
+            req.setdefault("memory", resources_raw.get("memory"))
+
+        if "limits_cpu" in resources_raw:
+            lim.setdefault("cpu", resources_raw.get("limits_cpu"))
+        if "limits_memory" in resources_raw:
+            lim.setdefault("memory", resources_raw.get("limits_memory"))
+
+        if req:
+            resources.setdefault("requests", {}).update(req)
+        if lim:
+            resources.setdefault("limits", {}).update(lim)
+    else:
+        LOG.warning("Job config 'resources' is not a mapping; ignoring")
 
     metadata: Dict[str, Any] = copy.deepcopy(job_config.get("metadata", {}))
     labels = copy.deepcopy(job_config.get("labels", {}))
