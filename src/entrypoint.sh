@@ -38,11 +38,27 @@ case "$MODE" in
         return 1 # False, should not ignore
     }
     
+    # Check if a file is currently being written to (has open file handles).
+    # Returns 0 (true) if the file is being written, 1 (false) otherwise.
+    is_file_being_written() {
+        local file_path=$1
+        # Use lsof to check if any process has the file open for writing.
+        # Redirect stderr to suppress errors for files that don't exist or aren't open.
+        if lsof "$file_path" 2>/dev/null | grep -q "[[:space:]].*w"; then
+            return 0 # True, file is being written
+        fi
+        return 1 # False, file is not being written
+    }
+    
     # Function to send file path to the webhook
     send_to_webhook() {
         local file_path=$1
         if should_ignore_file "$file_path"; then
             echo "Ignoring file: $file_path"
+            return
+        fi
+        if is_file_being_written "$file_path"; then
+            echo "Skipping file (still being written): $file_path"
             return
         fi
         curl -X POST "http://localhost:8080/import" -H "Content-Type: application/json" -d "{\"OmeroDropbox\":\"$WATCH_NAME\", \"fullPath\":\"$file_path\"}"
