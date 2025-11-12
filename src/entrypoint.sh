@@ -53,6 +53,23 @@ case "$MODE" in
     # Function to send file path to the webhook
     send_to_webhook() {
         local file_path=$1
+        local dir base companion
+
+        # Skip files that start with ._
+        base=$(basename "$file_path")
+        if [[ $base == ._* ]]; then
+            echo "Skipping AppleDouble or temp file: $file_path"
+            return
+        fi
+
+        # Skip if a companion ._ file exists for this file
+        dir=$(dirname "$file_path")
+        companion="$dir/._$base"
+        if [[ -e "$companion" ]]; then
+            echo "Skipping $file_path because companion $companion exists (file may be in progress)"
+            return
+        fi
+
         if should_ignore_file "$file_path"; then
             echo "Ignoring file: $file_path"
             return
