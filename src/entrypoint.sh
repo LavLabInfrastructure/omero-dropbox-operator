@@ -28,7 +28,7 @@ case "$MODE" in
     mkdir -p $WATCHED_DIR
     
     # Optional: Regex pattern to ignore files
-    IGNORE_PATTERN="${IGNORE_PATTERN:-\.txt}"
+    IGNORE_PATTERN=${IGNORE_PATTERN:-'/\.[^./][^/]*'}
     
     should_ignore_file() {
         local file_path=$1
