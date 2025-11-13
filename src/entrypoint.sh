@@ -60,20 +60,24 @@ case "$MODE" in
     # Track file sizes from the previous poll to detect stability.
     declare -A PREV_SIZES
 
-    # Build the find command (use -L to follow symlinks when requested)
+    # Build find options (use -L to follow symlinks when requested)
     if [[ "${FOLLOW_SYMLINKS}" == "true" || "${FOLLOW_SYMLINKS}" == "1" ]]; then
+        FIND_OPTS=(-L)
         echo "Scanning $WATCHED_DIR recursively (following symlinks)"
-        FIND_CMD=(find -L "$WATCHED_DIR" -type f -print0)
     else
+        FIND_OPTS=()
         echo "Scanning $WATCHED_DIR recursively (not following symlinks)"
-        FIND_CMD=(find "$WATCHED_DIR" -type f -print0)
     fi
 
     while true; do
         declare -A NEXT_SIZES
 
-        # Use process substitution to keep the loop in the same shell (so arrays persist).
-        "${FIND_CMD[@]}" | while IFS= read -r -d $'\0' file; do
+        # show scan start so we know it's running
+        echo "Starting scan at $(date)"
+
+        # Use process substitution so the while loop runs in the current shell
+        # (not in a subshell) and NEXT_SIZES updates are visible afterwards.
+        while IFS= read -r -d $'\0' file; do
             # skip directories (find -type f should avoid these, but keep the check just in case)
             if [[ -d "$file" ]]; then
                 continue
@@ -92,7 +96,7 @@ case "$MODE" in
             fi
 
             NEXT_SIZES["$file"]="$size"
-        done
+        done < <(find "${FIND_OPTS[@]}" "$WATCHED_DIR" -type f -print0 2>/dev/null)
 
         # Prepare for next poll: replace PREV_SIZES with NEXT_SIZES
         PREV_SIZES=()
